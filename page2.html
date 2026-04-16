@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>文本分段+限定词选择</title>
+    <link rel="stylesheet" href="css/index.css" />
+    <link rel="stylesheet" href="libs/theme-chalk/index.css" />
+    <script src="js/vue.js"></script>
+    <script src="libs/index.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            width: 1000px;
+            height: 800px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .step-content {
+            flex: 1;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-area {
+            margin-top: 20px;
+        }
+
+        .el-button {
+            background: linear-gradient(90deg, #007bff, #0056b3) !important;
+            color: white !important;
+            padding: 8px 12px !important;
+            border: none !important;
+            border-radius: 4px !important;
+            cursor: pointer !important;
+            transition: none !important;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) !important;
+            font-size: 14px !important;
+            margin: 5px;
+            /* 添加外边距以分隔按钮 */
+            width: auto;
+            /* 按钮宽度自动调整 */
+        }
+
+        button:hover,
+        .el-button:hover {
+            background: linear-gradient(90deg, #007bff, #0056b3) !important;
+            transform: none !important;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) !important;
+        }
+
+        button:active,
+        .el-button:active {
+            background: linear-gradient(90deg, #007bff, #0056b3) !important;
+            transform: none !important;
+            box-shadow: none !important;
+            outline: none !important;
+        }
+
+        .pagination {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .pagination button {
+            color: white;
+            margin: 0 5px;
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: 1px solid #007bff;
+            background: #007bff !important;
+            cursor: pointer;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .pagination button.active {
+            border: 1px solid #d32998;
+            background-color: #d32998 !important;
+        }
+
+        .pagination button:disabled {
+            background-color: #cccccc !important;
+            border-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        #outputText {
+            border: 1px solid #dcdfe6;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            white-space: pre-line;
+            overflow-y: auto;
+            font-family: Microsoft YaHei;
+            font-size: 15px;
+            line-height: 1.5;
+            height: 280px;
+            margin-top: 15px;
+            text-indent: 0;
+            margin-left: 0;
+            margin-right: 0;
+        }
+
+        .highlight {
+            color: red !important;
+        }
+
+        .selected-text {
+            margin-top: 20px;
+        }
+
+        .count-info {
+            margin-top: 15px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .operate-buttons {
+            display: flex;
+            margin-top: 10px;
+        }
+
+        .flex-container {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .flex-item {
+            width: 48%;
+            margin-right: 2%;
+        }
+
+        .flex-item:last-child {
+            margin-right: 0;
+        }
+
+        .el-input__inner {
+            padding: 2px !important;
+        }
+
+        .custom-textarea .el-textarea__inner {
+            text-indent: 0 !important;
+            padding: 2px !important;
+            margin: 0 !important;
+            border: 1px solid #dcdfe6 !important;
+            background-color: #f9f9f9 !important;
+            height: 100px !important;
+            border-radius: 4px !important;
+            white-space: pre-wrap;
+            overflow: auto;
+        }
+
+        .custom-input .el-input__inner {
+            text-indent: 0 !important;
+            padding: 2px !important;
+            margin: 0 !important;
+            border: 1px solid #dcdfe6 !important;
+            border-radius: 4px !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app" class="container">
+        <el-steps :active="activeStep">
+            <el-step title="步骤 1" description="请输入文本内容"></el-step>
+            <el-step title="步骤 2" description="文本拆分及限定词选择"></el-step>
+        </el-steps>
+        <div class="step-content">
+            <div v-if="activeStep === 0" class="input-group">
+                <div class="input-area">
+                    <h3>请输入文本内容：</h3>
+                    <el-input type="textarea" placeholder="请输入内容" v-model="inputText" rows="12"></el-input>
+                    <el-button type="primary" @click="submitText" style="margin-top: 20px;">提交</el-button>
+                    <el-button type="info" @click="clearUpload" style="margin-top: 20px;">清空</el-button>
+                </div>
+            </div>
+            <div v-if="activeStep === 1">
+                <div class="navigation-buttons" style="margin-top:20px;">
+                    <el-button type="primary" @click="goFirstStep" style="margin-left: 750px;">返回文本输入</el-button>
+                </div>
+                <el-button type="success" @click="copyPageText"
+                    style="margin-top: 0px;margin-bottom: 10px;">复制当前页文本</el-button>
+                <div class="pagination">
+                    <button v-if="totalPages > 0" @click="goToFirst" :disabled="currentPage === 0">首页</button>
+                    <button v-if="visiblePages.length && visiblePages[0] > 0" @click="prevPageBlock">«</button>
+                    <button v-for="page in visiblePages" :key="page" :class="{ active: currentPage === page }"
+                        @click="changePage(page)">
+                        {{ page + 1 }}
+                    </button>
+                    <button v-if="visiblePages.length && visiblePages[visiblePages.length - 1] < totalPages - 1"
+                        @click="nextPageBlock">»</button>
+                    <button v-if="totalPages > 0" @click="goToLast"
+                        :disabled="currentPage === totalPages - 1">末页</button>
+                </div>
+                <el-checkbox v-model="wrapWithBrackets" style="margin-top: 5px;">是否使用‘[ ]’包裹限定词</el-checkbox>
+                <h3 style="margin-top: 10px;">请在下面文本框中使用鼠标划取限定词：</h3>
+                <pre id="outputText" @mouseup="extractSelectedText">
+                    <code v-html="formattedOutputText"></code>
+                </pre>
+                <el-button v-if="wrapWithBrackets" type="primary" @click="copyFullContent"
+                    style="background-color: #4cc660 !important;"> 复制完整内容（全文限定词+限定词+文本内容）</el-button>
+                <div class="flex-container">
+                    <div class="flex-item">
+                        <h3 style="margin-top: -5px;">手动输入的全文限定词：</h3>
+                        <el-input type="text" :value="formattedKeywords" readonly
+                            placeholder="输入的全文限定词将显示在这里"></el-input>
+                        <div class="operate-buttons">
+                            <el-button type="info" @click="showDialog" style="margin-top: 20px;">编辑全文限定词</el-button>
+                        </div>
+
+                    </div>
+                    <div class="flex-item">
+                        <h3 style="margin-top: -5px;">鼠标划取的限定词：</h3>
+                        <el-input type="text" :value="formattedSelectedText" readonly
+                            placeholder="划取的文本将显示在这里"></el-input>
+                        <div class="operate-buttons">
+                            <el-button type="danger" @click="undoSelection">撤销上一个划取</el-button>
+                            <el-button type="warning" @click="clearSelections">清空所有划取</el-button>
+                        </div>
+                    </div>
+                </div>
+                <div class="count-info">
+                    已划取的限定词数量: {{ selectedCount }}<br />
+                    限定词与当前显示文本总长度: {{ totalLength }}
+                </div>
+            </div>
+        </div>
+
+        <template>
+            <el-dialog title="编辑全文限定词" :visible.sync="dialogVisible">
+                <div>
+                    <el-button type="primary" @click="handleAddTest" style="margin-bottom: 10px;">辟谣</el-button>
+                    <el-button type="info" @click="addKeywordStructure"
+                        style="margin-bottom: 10px;">添加全文限定词结构体</el-button>
+                    <el-button type="danger" @click="clearAllKeywords" style="margin-bottom: 10px;">清空</el-button>
+                    <div v-for="(keyword, index) in fullKeywords" :key="index" class="keyword-container">
+                        <span>{{ index + 1 }}. </span>
+                        <el-input class="keyword-input" v-model="keyword.text" placeholder="输入全文限定词"></el-input>
+                        <el-checkbox v-model="keyword.negated">否定</el-checkbox>
+                        <el-button type="danger" @click="removeKeyword(index)">删除</el-button>
+                    </div>
+                    <el-input type="textarea" class="custom-textarea" :value="formattedKeywords" readonly
+                        placeholder="拼接结果" rows="5" style="margin-top: 10px;"></el-input>
+                </div>
+                <span slot="footer" class="dialog-footer">
+                    <el-button @click="dialogVisible = false">取消</el-button>
+                    <el-button type="primary" @click="confirmKeywords">确认添加</el-button>
+                </span>
+            </el-dialog>
+        </template>
+    </div>
+    <script>
+        new Vue({
+            el: "#app",
+            data() {
+                return {
+                    activeStep: 0,
+                    inputText: "",
+                    paginatedText: [],
+                    currentPage: 0,
+                    selectedTexts: [],
+                    includeTest: false,
+                    wrapWithBrackets: true,
+                    dialogVisible: false,
+                    fullKeywords: [],
+                    keywordCounter: 0
+                };
+            },
+            computed: {
+                totalPages() {
+                    return this.paginatedText.length;
+                },
+                formattedKeywords() {
+                    let base = this.fullKeywords.map(keyword => {
+                        return keyword.negated ? `!{${keyword.text}}` : `{${keyword.text}}`;
+                    }).join("");
+                    return this.includeTest ? "!{谣言|谣|辟谣|假的|造谣|虚假|编造}" + base : base;
+                },
+                formattedFullKeyword() {
+                    return this.fullKeywords.map(keyword => {
+                        return keyword.negated ? `!{${keyword.text}}` : `{${keyword.text}}`;
+                    }).join("");
+                },
+                visiblePages() {
+                    const maxVisible = 5;
+                    const total = this.totalPages;
+                    const current = this.currentPage;
+                    let start = 0;
+                    let end = total;
+                    if (total > maxVisible) {
+                        if (current < Math.floor(maxVisible / 2)) {
+                            start = 0;
+                            end = maxVisible;
+                        } else if (current > total - Math.ceil(maxVisible / 2)) {
+                            start = total - maxVisible;
+                            end = total;
+                        } else {
+                            start = current - Math.floor(maxVisible / 2);
+                            end = start + maxVisible;
+                        }
+                    }
+                    const pages = [];
+                    for (let i = start; i < end; i++) {
+                        pages.push(i);
+                    }
+                    return pages;
+                },
+                formattedOutputText() {
+                    let text = this.paginatedText[this.currentPage] || "";
+                    this.selectedTexts.forEach(sel => {
+                        if (sel) {
+                            const escapedSel = sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                            const re = new RegExp(escapedSel, "g");
+                            text = text.replace(re, `<span class="highlight">${sel}</span>`);
+                        }
+                    });
+                    return text;
+                },
+                formattedSelectedText() {
+                    let joinedText = this.selectedTexts.length > 0 ? `[${this.selectedTexts.join(" ")}]` : "";
+                    return joinedText;
+                },
+                formattedFullKeyword() {
+                    return this.fullKeywords.map(keyword => `{${keyword.text}}`).join(", ");
+                },
+                selectedCount() {
+                    return this.selectedTexts.length;
+                },
+                totalLength() {
+                    const currentText = this.paginatedText[this.currentPage] || "";
+                    let displayedLen = Array.from(currentText).length;
+                    let rawSelected = this.selectedTexts.join(" ");
+                    let selectedLen = 0;
+                    if (this.selectedTexts.length > 0) {
+                        selectedLen = Array.from(`[${rawSelected}]`).length;
+                    }
+                    const fullKeywordLength = Array.from(this.formattedKeywords).length;
+                    return displayedLen + selectedLen + fullKeywordLength;
+                }
+            },
+            methods: {
+                clearAllKeywords() {
+                    this.fullKeywords = [];
+                    this.includeTest = false;
+                },
+                handleAddTest() {
+                    this.includeTest = true;
+                },
+                addKeywordStructure() {
+                    this.keywordCounter++;
+                    this.fullKeywords.push({ id: this.keywordCounter, text: "", negated: false });
+                },
+                removeKeyword(index) {
+                    this.fullKeywords.splice(index, 1);
+                },
+                confirmKeywords() {
+                    const emptyKeyword = this.fullKeywords.some(keyword => !keyword.text.trim());
+                    if (emptyKeyword) {
+                        this.$message.error("存在未输入内容的全文限定词结构体，请检查后再提交！");
+                        return;
+                    }
+                    this.dialogVisible = false;
+                },
+                submitText() {
+                    if (this.inputText) {
+                        this.paginatedText = this.splitText(this.inputText, 470).map(text => text.trimStart());
+                        this.currentPage = 0;
+                        this.activeStep = 1;
+                    } else {
+                        this.$message.warning("请输入内容");
+                    }
+                },
+                splitText(text, maxLength) {
+                    const result = [];
+                    const sentenceEndRegex = /[。！？.?!]/;
+                    let start = 0;
+
+                    while (start < text.length) {
+                        if (text.length - start <= maxLength) {
+                            result.push(text.slice(start).trimStart());
+                            break;
+                        }
+                        let subStr = text.slice(start, start + maxLength);
+                        let splitPos = -1;
+
+                        for (let i = subStr.length - 1; i >= 0; i--) {
+                            if (sentenceEndRegex.test(subStr[i])) {
+                                splitPos = i;
+                                break;
+                            }
+                        }
+
+                        if (splitPos === -1) {
+                            result.push(subStr.trimStart());
+                            start += maxLength;
+                        } else {
+                            result.push(text.slice(start, start + splitPos + 1).trimStart());
+                            start += splitPos + 1;
+                        }
+                    }
+                    return result;
+                },
+                changePage(index) {
+                    this.selectedTexts = [];
+                    this.fullKeywords = [];
+                    this.includeTest = false;
+                    this.currentPage = index;
+                },
+                prevPageBlock() {
+                    const newPage = this.visiblePages[0] - 1;
+                    if (newPage >= 0) {
+                        this.changePage(newPage);
+                    }
+                },
+                nextPageBlock() {
+                    const newPage = this.visiblePages[this.visiblePages.length - 1] + 1;
+                    if (newPage < this.totalPages) {
+                        this.changePage(newPage);
+                    }
+                },
+                goToFirst() {
+                    if (this.totalPages > 0) {
+                        this.changePage(0);
+                    }
+                },
+                goToLast() {
+                    if (this.totalPages > 0) {
+                        this.changePage(this.totalPages - 1);
+                    }
+                },
+                clearUpload() {
+                    this.inputText = "";
+                    this.fullKeywords = [];
+                    this.includeTest = false;
+                    this.paginatedText = [];
+                    this.selectedTexts = [];
+                    this.currentPage = 0;
+                    this.activeStep = 0;
+                },
+                extractSelectedText() {
+                    const selection = window.getSelection();
+                    const selected = selection.toString().trim();
+                    if (selected && !this.selectedTexts.includes(selected)) {
+                        this.selectedTexts.push(selected);
+                    }
+                    selection.removeAllRanges();
+                },
+                undoSelection() {
+                    this.selectedTexts.pop();
+                },
+                clearSelections() {
+                    this.selectedTexts = [];
+                },
+                copyToClipboard() {
+                    const textToCopy = this.formattedSelectedText;
+                    navigator.clipboard
+                        .writeText(textToCopy)
+                        .then(() => {
+                            this.$message.success("复制限定词结果成功！");
+                        })
+                        .catch(err => {
+                            console.error("复制失败:", err);
+                            this.$message.error("复制失败，请手动复制。");
+                        });
+                },
+                copyFullContent() {
+                    let baseText = this.paginatedText[this.currentPage] || "";
+                    let textToCopy = `${this.formattedKeywords}${this.formattedSelectedText}${baseText}`;
+                    navigator.clipboard
+                        .writeText(textToCopy)
+                        .then(() => {
+                            this.$message.success("复制完整内容成功！");
+                        })
+                        .catch(err => {
+                            console.error("复制失败:", err);
+                            this.$message.error("复制失败，请手动复制。");
+                        });
+                },
+                copyPageText() {
+                    let pageText = this.paginatedText[this.currentPage] || "";
+                    navigator.clipboard
+                        .writeText(pageText)
+                        .then(() => {
+                            this.$message.success("复制当前页文本成功！");
+                        })
+                        .catch(err => {
+                            console.error("复制失败:", err);
+                            this.$message.error("复制失败，请手动复制。");
+                        });
+                },
+                goFirstStep() {
+                    this.selectedTexts = [];
+                    this.fullKeywords = [];
+                    this.includeTest = false;
+                    this.activeStep = 0;
+                },
+                showDialog() {
+                    this.dialogVisible = true;
+                }
+            }
+        });
+
+    </script>
+</body>
+
+</html>

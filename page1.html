@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>限定词选取</title>
+  <!-- 引入 Vue -->
+  <script src="libs/vue.min.js"></script>
+  <!-- 引入 Element UI -->
+  <link rel="stylesheet" href="libs/theme-chalk/index.css">
+  <script src="libs/index.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f2f5;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+    }
+
+    .flex-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-top: 20px;
+    }
+
+    .input-area,
+    .output-area {
+      width: 48%;
+    }
+
+    el-button {
+      margin-top: 10px;
+    }
+
+    #outputText {
+      border: 1px solid #dcdfe6;
+      padding: 10px;
+      height: 150px;
+      overflow-y: auto;
+      background-color: #f9f9f9;
+      border-radius: 4px;
+      white-space: pre-wrap;
+    }
+
+    .selected-text {
+      margin-top: 20px;
+    }
+
+    .input-area textarea {
+      height: 70px;
+      overflow-y: auto;
+      resize: none;
+    }
+
+    .highlight {
+      color: red;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app" class="container">
+    <h3>功能选择：</h3>
+    <el-checkbox v-model="wrapWithBrackets">是否使用‘[ ]’包裹限定词</el-checkbox>
+    <div class="input-area">
+      <h3>请输入文本内容：</h3>
+      <!-- 添加 :disabled 属性，绑定到 isInputDisabled -->
+      <el-input type="textarea" placeholder="请输入内容" v-model="inputText" :disabled="isInputDisabled"></el-input>
+      <el-button type="primary" @click="submitText" style="margin-top: 10px;">提交</el-button>
+      <el-button type="info" @click="clearUpload" style="margin-top: 10px;">清空</el-button>
+    </div>
+
+    <h3>在以下文本框中使用鼠标划取限定词：</h3>
+    <div class="output-area">
+      <div id="outputText" @mouseup="extractSelectedText" style="width: 500px;">
+        <span v-html="formattedOutputText"></span>
+      </div>
+    </div>
+    <div class="selected-text">
+      <h3>限定词划取结果：</h3>
+      <p style="margin-top: 10px; font-weight: bolder; color:rgb(11, 163, 34);">已划取的限定词数量: {{ selectedCount }}</p>
+      <p style="margin-top: 10px; font-weight: bolder; color:rgb(11, 163, 34);">限定词与输入内容总长度: {{ totalLength }}</p>
+      <el-input type="text" :value="formattedSelectedText" readonly placeholder="你划取的限定词将显示在这里"></el-input>
+      <el-button type="danger" @click="undoSelection" style="margin-top: 10px;">撤销上一个划取</el-button>
+      <el-button type="warning" @click="clearSelections" style="margin-top: 10px;">清空所有划取</el-button>
+      <el-button type="success" @click="copyToClipboard" style="margin-top: 10px;">复制限定词结果</el-button>
+      <el-button v-if="wrapWithBrackets" type="primary" @click="copyFullContent" style="margin-top: 10px;">
+        复制完整内容
+      </el-button>
+
+    </div>
+  </div>
+
+  <script>
+    new Vue({
+      el: '#app',
+      data: {
+        inputText: '',
+        displayedText: '',
+        selectedTexts: [],
+        wrapWithBrackets: true,
+        isContentSubmitted: false,
+        // 新增变量，用于控制输入框是否可编辑
+        isInputDisabled: false
+      },
+      computed: {
+        formattedOutputText() {
+          let text = this.displayedText;
+          this.selectedTexts.forEach(sel => {
+            if (sel) {
+              const escapedSel = sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const re = new RegExp(escapedSel, 'g');
+              text = text.replace(re, `<span class="highlight">${sel}</span>`);
+            }
+          });
+          return text;
+        },
+        formattedSelectedText() {
+          const text = this.selectedTexts.join(' ');
+          return this.wrapWithBrackets ? `[${text}]` : text;
+        },
+        selectedCount() {
+          return this.selectedTexts.length;
+        },
+        // 计算输入内容与限定词划取结果的总长度
+        totalLength() {
+          return (this.formattedSelectedText ? this.formattedSelectedText.length : 0) + (this.inputText ? this.inputText.length : 0);
+        }
+      },
+      methods: {
+        submitText() {
+          if (this.isContentSubmitted) {
+            this.$message.warning('请先清空上传后再提交新的内容！');
+            return;
+          }
+          this.displayedText += (this.displayedText ? ' ' : '') + this.inputText;
+          this.isInputDisabled = true;
+          this.isContentSubmitted = true;
+        },
+        clearUpload() {
+          this.inputText = '';
+          this.displayedText = '';
+          this.selectedTexts = [];
+          this.isContentSubmitted = false;
+          this.isInputDisabled = false;
+        },
+        extractSelectedText() {
+          const selection = window.getSelection();
+          if (selection.rangeCount === 0) return;
+          const range = selection.getRangeAt(0);
+          const outputDiv = document.getElementById('outputText');
+          if (!outputDiv.contains(range.commonAncestorContainer)) return;
+
+          const selected = selection.toString().trim();
+          if (selected && !this.selectedTexts.includes(selected)) {
+            this.selectedTexts.push(selected);
+          }
+          selection.removeAllRanges();
+        },
+        undoSelection() {
+          this.selectedTexts.pop();
+        },
+        clearSelections() {
+          this.selectedTexts = [];
+        },
+        copyToClipboard() {
+          const textToCopy = this.formattedSelectedText;
+          navigator.clipboard.writeText(textToCopy).then(() => {
+            this.$message.success('复制限定词结果成功！');
+          }).catch(err => {
+            console.error('复制失败:', err);
+            this.$message.error('复制失败，请手动复制。');
+          });
+        },
+        copyFullContent() {
+          let textToCopy = this.formattedSelectedText;
+          if (this.displayedText) {
+            textToCopy = textToCopy + '' + this.displayedText;
+          }
+          navigator.clipboard.writeText(textToCopy).then(() => {
+            this.$message.success('复制完整内容成功！');
+          }).catch(err => {
+            console.error('复制失败:', err);
+            this.$message.error('复制失败，请手动复制。');
+          });
+        }
+      }
+    });
+  </script>
+
+</body>
+
+</html>

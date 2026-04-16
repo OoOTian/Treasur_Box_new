@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>输入处理界面</title>
+    <link rel="stylesheet" href="css/index.css" />
+    <link rel="stylesheet" href="libs/theme-chalk/index.css" />
+    <script src="js/vue.js"></script>
+    <script src="libs/index.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f4f4;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            height: 800px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        textarea {
+            width: calc(100% - 22px);
+            height: 100px;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            text-align: left;
+            vertical-align: top;
+            line-height: normal;
+            resize: none;
+        }
+
+        textarea::placeholder {
+            text-align: left;
+            color: #aaa;
+            opacity: 1;
+        }
+
+        button {
+            background-color: #42b983;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 8px 12px;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background-color: #3a9b72;
+        }
+
+        #output {
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            min-height: 100px;
+            max-height: 200px;
+            background: #f9f9f9;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .checkbox-group {
+            margin: 20px 0;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 300px;
+            text-align: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app" class="container">
+
+        <textarea v-model="inputText" placeholder="输入你的内容"></textarea>
+        <button @click="clearInput" style="width: 100px;height: 35px;">清空输入</button>
+        <div class="checkbox-group">
+            <h3>需要删除的文本</h3>
+            <label>
+                <input type="checkbox" v-model="allSelected" @change="toggleSelectAll"> 全选
+            </label>
+            <label v-for="(option, index) in options" :key="index">
+                <input type="checkbox" v-model="option.checked"> {{ option.name }}
+            </label>
+            <button @click="showModal">添加删除对象</button>
+        </div>
+
+
+        <button @click="processInput" style="width: 100px;height: 35px;">处理文本</button>
+        <div id="output">{{ outputText }}</div>
+        <button @click="copyOutput" style="margin-top: 20px;height: 35px;">复制输出内容</button>
+        <div :style="{ color: outputLength > 500 ? 'red' : 'green', marginTop: '5px', fontWeight: 'bold' }">
+            文本长度：{{ outputLength }}
+        </div>
+        <div class="modal" :class="{ 'active': isModalVisible }" @click="hideModal">
+            <div class="modal-content" @click.stop>
+                <h3>添加新选项</h3>
+                <input type="text" v-model="newOptionName" placeholder="输入文本">
+                <button @click="addOption">添加</button>
+                <button @click="hideModal">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        new Vue({
+            el: '#app',
+            data: {
+                inputText: '',
+                outputText: '',
+                options: [
+                    { name: '抽帧图片', checked: true },
+                    { name: '剔除', checked: true },
+                    { name: '保留', checked: true },
+                    { name: '图片消重库', checked: true }
+                ],
+                newOptionName: '',
+                isModalVisible: false,
+                allSelected: true
+            },
+            computed: {
+                outputLength() {
+                    return this.outputText.length;
+                }
+            },
+            methods: {
+                processInput() {
+                    let text = this.inputText.replace(/\s+/g, '');
+                    this.options.forEach(option => {
+                        if (option.checked) {
+                            text = text.replace(new RegExp(option.name, 'g'), '');
+                        }
+                    });
+                    this.outputText = text;
+                },
+                clearInput() {
+                    this.inputText = '';
+                    this.outputText = '';
+                },
+                copyOutput() {
+                    navigator.clipboard.writeText(this.outputText).then(() => {
+                        this.$message({
+                            message: '输出内容已复制到剪贴板！',
+                            type: 'success',
+                            duration: 2000
+                        });
+                    }).catch(err => {
+                        console.error('复制失败: ', err);
+                        this.$message({
+                            message: '复制失败，请重试！',
+                            type: 'error',
+                            duration: 2000
+                        });
+                    });
+                },
+                showModal() {
+                    this.isModalVisible = true;
+                },
+                hideModal() {
+                    this.isModalVisible = false;
+                    this.newOptionName = '';
+                },
+                addOption() {
+                    if (this.newOptionName.trim() !== '') {
+                        this.options.push({ name: this.newOptionName, checked: false });
+                        this.newOptionName = '';
+                        this.hideModal();
+                    } else {
+                        this.$message({
+                            message: '选项名称不能为空！',
+                            type: 'warning',
+                            duration: 2000
+                        });
+                    }
+                },
+                toggleSelectAll() {
+                    this.options.forEach(option => {
+                        option.checked = this.allSelected;
+                    });
+                }
+            },
+            watch: {
+                options: {
+                    handler() {
+                        this.allSelected = this.options.every(option => option.checked);
+                    },
+                    deep: true
+                }
+            },
+            created() {
+                this.options.forEach(option => {
+                    option.checked = option.name !== '剔除' && option.name !== '保留' && option.name !== '抽帧图片' && option.name !== '图片消重库' ? false : true;
+                });
+            }
+        });
+    </script>
+
+</body>
+
+</html>
