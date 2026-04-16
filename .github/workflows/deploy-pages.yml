@@ -28,17 +28,23 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Versions
         run: node -v && npm -v
 
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup pnpm
+        run: corepack prepare pnpm@9.15.4 --activate
+
       - name: Install
-        run: |
-          npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+        run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: npm run build
+        run: pnpm run build
         env:
           GITHUB_PAGES: 'true'
           GITHUB_REPOSITORY: ${{ github.repository }}
