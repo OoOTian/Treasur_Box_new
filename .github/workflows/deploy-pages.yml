@@ -34,7 +34,8 @@ jobs:
         run: node -v && npm -v
 
       - name: Install
-        run: npm ci --include=dev
+        run: |
+          npm ci --no-audit --no-fund || npm install --no-audit --no-fund
 
       - name: Build
         run: npm run build
